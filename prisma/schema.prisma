@@ -1,0 +1,157 @@
+// 理工课探 · 数据模型
+// 文档：docs/PRD.md 第 5 节
+// 注意：当前 provider = sqlite（本地开发）。
+//   - SQLite 不支持原生 enum，故用 String + 注释约束取值；
+//   - tags 以 JSON 字符串存储（String），上线切 PostgreSQL 时可改为 Json/数组。
+// 学习地址：https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// 用户：学号即登录账号，不校验真实名单
+model User {
+  id           String    @id @default(cuid())
+  studentNo    String    @unique // 学号，作为登录账号
+  passwordHash String
+  nickname     String // 匿名昵称，前台展示用（不填则注册时随机生成）
+  role         String    @default("student") // student | admin
+  status       String    @default("active") // active | banned
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  reviews          Review[]
+  comments         Comment[]
+  reactions        Reaction[]
+  submittedCourses Course[]   @relation("CourseSubmitter")
+  reportsMade      Report[]   @relation("Reporter")
+
+  @@index([status])
+}
+
+/// 课程：可由学生提交，审核后上架
+model Course {
+  id         String   @id @default(cuid())
+  courseNo   String? // 课程号，学生提交时可为空
+  name       String
+  teacher    String
+  department String?
+  credit     Float?
+  type       String? // required | elective | general（必修 | 选修 | 通识）
+  status     String   @default("pending") // pending | published | delisted
+  createdAt  DateTime @default(now())
+
+  submittedById String?
+  submittedBy   User?   @relation("CourseSubmitter", fields: [submittedById], references: [id])
+
+  reviews Review[]
+
+  @@index([status])
+  @@index([department])
+  @@index([name])
+}
+
+/// 评价：同一用户对同一课程仅一条
+model Review {
+  id             String   @id @default(cuid())
+  userId         String
+  courseId       String
+  ratingOverall  Float // 综合推荐 1-5
+  ratingScore    Float // 给分情况 1-5（越高越松）
+  ratingWorkload Float // 作业负担 1-5（越高越轻）
+  ratingGain     Float // 收获程度 1-5
+  content        String // 文字评价，10-2000 字
+  tags           String? // JSON 字符串数组，如 ["考试简单","点名严格"]
+  term           String? // 修读学期，如 "2025秋"
+  status         String   @default("visible") // visible | hidden | pending
+  helpfulCount   Int      @default(0) // 冗余计数，写时更新
+  likeCount      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user      User           @relation(fields: [userId], references: [id])
+  course    Course         @relation(fields: [courseId], references: [id])
+  appends   ReviewAppend[]
+  comments  Comment[]
+  reactions Reaction[]
+
+  @@unique([userId, courseId]) // 一人一课一评
+  @@index([courseId, status])
+  @@index([createdAt])
+}
+
+/// 追加评价：结课后补充，时间线展示，不覆盖原文
+model ReviewAppend {
+  id        String   @id @default(cuid())
+  reviewId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+/// 评论：对评价的回复（V1 单层）
+model Comment {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  content   String
+  status    String   @default("visible") // visible | hidden
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([reviewId, status])
+}
+
+/// 互动：点赞 / 有用，统一表
+model Reaction {
+  id        String   @id @default(cuid())
+  userId    String
+  reviewId  String
+  type      String // like | helpful
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId, type]) // 同一用户对同一评价每种反应仅一次
+  @@index([reviewId, type])
+}
+
+/// 举报（V1.5）
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  targetType String // review | comment
+  targetId   String
+  reason     String
+  status     String   @default("pending") // pending | resolved | rejected
+  handledBy  String?
+  createdAt  DateTime @default(now())
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id])
+
+  @@index([status])
+  @@index([targetType, targetId])
+}
+
+/// 管理操作日志
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  target    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+}
