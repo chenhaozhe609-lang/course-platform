@@ -38,8 +38,27 @@ body {
 .animate-marquee {
   animation: marquee 36s linear infinite;
 }
+
+/* 拼贴纸片入场（错峰落下） */
+@keyframes collageIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.collage-in {
+  animation: collageIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee {
+    animation: none;
+  }
+  .collage-in {
     animation: none;
   }
 }
