@@ -1,256 +1,323 @@
 import Link from "next/link";
+import { Bodoni_Moda, Archivo } from "next/font/google";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
-import { HeroCanvas } from "@/components/hero-canvas";
-import { RatingStars } from "@/components/rating-stars";
 
-const VALUE_CARDS = [
-  {
-    title: "按需搜课",
-    body: "按课程名、教师、院系快速检索，一眼看到平均分与评价数。",
-    icon: (
-      <path d="M11 4a7 7 0 1 0 4.2 12.6l3.6 3.6 1.4-1.4-3.6-3.6A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
-    ),
-  },
-  {
-    title: "真实评价",
-    body: "给分、作业、收获四维打分，配真实文字点评与结课追评。",
-    icon: (
-      <path d="M4 4h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8l-4 4V5a1 1 0 0 1 1-1Zm3 5v2h10V9H7Zm0 4v2h7v-2H7Z" />
-    ),
-  },
-  {
-    title: "匿名表达",
-    body: "前台只显示匿名昵称，让你放心说真话，好评差评都算数。",
-    icon: (
-      <path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z" />
-    ),
-  },
+const bodoni = Bodoni_Moda({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "900"],
+  style: ["normal", "italic"],
+  variable: "--font-bodoni",
+  display: "swap",
+});
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-archivo",
+  display: "swap",
+});
+
+const serif = { fontFamily: "var(--font-bodoni)" } as const;
+
+// 纸面颗粒（去饱和的 fractal noise），叠加 multiply 增加海报质感
+const GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
+// 旋转的评价碎片
+const CHIPS = [
+  { t: "★★★★★", cls: "left-[2%] top-[18%] rotate-[-8deg] bg-zinc-900 text-[#f4f4f2]" },
+  { t: "Generous grading", cls: "right-[6%] top-[12%] rotate-[5deg] border border-zinc-900" },
+  { t: "Way too much homework", cls: "right-[2%] top-[34%] rotate-[-4deg] border border-zinc-900" },
+  { t: "Highly recommend", cls: "left-[4%] top-[64%] rotate-[3deg] bg-zinc-900 text-[#f4f4f2]" },
+  { t: "Easy final", cls: "right-[10%] bottom-[16%] rotate-[7deg] border border-zinc-900" },
+  { t: "Hard pass.", cls: "right-[24%] top-[6%] rotate-[-3deg] border border-zinc-900" },
+  { t: "Actually learned a lot", cls: "left-[12%] bottom-[8%] rotate-[-5deg] border border-zinc-900" },
+];
+
+const TICKER = [
+  "DATA STRUCTURES",
+  "GENEROUS GRADING",
+  "EASY FINAL",
+  "HIGHLY RECOMMEND",
+  "TOO MUCH HOMEWORK",
+  "THE PROF IS AMAZING",
+  "MACHINE LEARNING",
+  "ACTUALLY LEARNED A LOT",
+  "HARD PASS",
+  "WORTH IT",
+];
+
+const VALUES = [
+  { n: "01", t: "SEARCH", d: "Find any course by name, teacher, or department. The average rating sits right next to it." },
+  { n: "02", t: "REAL REVIEWS", d: "Four-dimension scores for grading, workload, and payoff, plus honest written reviews and follow-ups." },
+  { n: "03", t: "ANONYMOUS", d: "Only your nickname shows. Say what you actually think, a glowing review or a warning." },
 ];
 
 async function getHotCourses() {
-  return prisma.course.findMany({
+  const rows = await prisma.course.findMany({
     where: { status: "published" },
     orderBy: [{ reviews: { _count: "desc" } }, { createdAt: "desc" }],
-    take: 6,
+    take: 5,
     include: {
       _count: { select: { reviews: true } },
       reviews: { select: { ratingOverall: true } },
     },
   });
+  return rows.map((c) => {
+    const n = c.reviews.length;
+    return {
+      id: c.id,
+      name: c.name,
+      teacher: c.teacher,
+      count: c._count.reviews,
+      avg: n ? c.reviews.reduce((s, r) => s + r.ratingOverall, 0) / n : null,
+    };
+  });
+}
+
+function Crosshair({ className }: { className: string }) {
+  return (
+    <span aria-hidden className={`pointer-events-none absolute text-zinc-900/40 ${className}`}>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1">
+        <path d="M7 0v14M0 7h14" />
+      </svg>
+    </span>
+  );
 }
 
 export default async function LandingPage() {
   const [user, hot] = await Promise.all([getCurrentUser(), getHotCourses()]);
 
-  const hotWithAvg = hot.map((c) => {
-    const n = c.reviews.length;
-    const avg = n
-      ? c.reviews.reduce((s, r) => s + r.ratingOverall, 0) / n
-      : null;
-    return { id: c.id, name: c.name, teacher: c.teacher, count: c._count.reviews, avg };
-  });
-
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#06070d] text-white">
-      {/* 顶部透明导航 */}
-      <header className="absolute inset-x-0 top-0 z-30">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <span className="text-lg font-semibold tracking-tight">理工课探</span>
-          <div className="flex items-center gap-2 text-sm">
-            <Link
-              href="/courses"
-              className="rounded-full px-3 py-1.5 text-white/70 transition-colors hover:text-white"
-            >
-              浏览课程
+    <div
+      className={`${bodoni.variable} ${archivo.variable} relative min-h-screen overflow-hidden bg-[#f4f4f2] text-zinc-900`}
+      style={{ fontFamily: "var(--font-archivo)" }}
+    >
+      {/* 纸面颗粒 */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-50 opacity-[0.06] mix-blend-multiply"
+        style={{ backgroundImage: GRAIN }}
+      />
+
+      {/* 报头 */}
+      <header className="relative z-20 border-b border-zinc-900">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+          <div className="flex items-baseline gap-3">
+            <span className="text-lg font-extrabold tracking-tight">理工课探</span>
+            <span className="hidden text-[11px] uppercase tracking-[0.25em] text-zinc-500 sm:inline">
+              Ligong Course Reviews
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-sm">
+            <Link href="/courses" className="px-3 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900">
+              Browse
             </Link>
             {user ? (
-              <Link
-                href="/me"
-                className="rounded-full border border-white/15 bg-white/5 px-4 py-1.5 backdrop-blur-md transition-colors hover:bg-white/10"
-              >
+              <Link href="/me" className="border border-zinc-900 px-4 py-1.5 font-medium transition-colors hover:bg-zinc-900 hover:text-[#f4f4f2]">
                 {user.nickname}
               </Link>
             ) : (
               <>
-                <Link
-                  href="/login"
-                  className="rounded-full px-3 py-1.5 text-white/70 transition-colors hover:text-white"
-                >
-                  登录
+                <Link href="/login" className="px-3 py-1.5 text-zinc-600 transition-colors hover:text-zinc-900">
+                  Log in
                 </Link>
-                <Link
-                  href="/register"
-                  className="rounded-full bg-white px-4 py-1.5 font-medium text-[#06070d] transition-transform hover:scale-[1.03]"
-                >
-                  注册
+                <Link href="/register" className="bg-zinc-900 px-4 py-1.5 font-medium text-[#f4f4f2] transition-transform hover:-translate-y-0.5">
+                  Sign up
                 </Link>
               </>
             )}
           </div>
-        </nav>
+        </div>
       </header>
 
-      {/* HERO */}
-      <section className="relative flex min-h-screen items-center justify-center px-6">
-        {/* 静态多色底光（无 JS / SSR 时也有色彩） */}
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-70 blur-3xl"
-          style={{
-            background:
-              "radial-gradient(40% 50% at 25% 40%, rgba(46,155,255,.45), transparent 70%), radial-gradient(35% 45% at 70% 35%, rgba(196,76,255,.40), transparent 70%), radial-gradient(40% 50% at 60% 70%, rgba(255,92,168,.35), transparent 70%), radial-gradient(30% 40% at 85% 60%, rgba(255,138,76,.30), transparent 70%)",
-          }}
-        />
-        {/* 动态光流 */}
-        <HeroCanvas className="absolute inset-0 h-full w-full" />
-        {/* 顶/底渐隐，让文字更聚焦 */}
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(60% 60% at 50% 45%, transparent, rgba(6,7,13,.55) 100%)",
-          }}
-        />
+      {/* HERO 拼贴 */}
+      <section className="relative mx-auto flex min-h-[86vh] max-w-6xl flex-col justify-center px-6 py-16">
+        <Crosshair className="left-4 top-4" />
+        <Crosshair className="right-4 top-4" />
+        <Crosshair className="bottom-4 left-4" />
+        <Crosshair className="bottom-4 right-4" />
 
-        {/* 液态玻璃面板 */}
-        <div className="relative z-10 w-full max-w-2xl">
-          <div className="rounded-[28px] border border-white/12 bg-white/[0.06] px-8 py-12 text-center shadow-[0_8px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:px-12">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              校园课程评价社区
+        {/* 巨型描边背景字 */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-6 top-[8%] hidden select-none text-[22rem] leading-none text-transparent lg:block"
+          style={{ ...serif, WebkitTextStroke: "1px rgba(24,24,27,0.10)" }}
+        >
+          ✳
+        </span>
+        {/* 网点圆 */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-16 bottom-[6%] hidden h-72 w-72 rounded-full opacity-[0.5] md:block"
+          style={{
+            backgroundImage: "radial-gradient(#18181b 1px, transparent 1.7px)",
+            backgroundSize: "11px 11px",
+            WebkitMaskImage: "radial-gradient(circle at center, #000 55%, transparent 72%)",
+            maskImage: "radial-gradient(circle at center, #000 55%, transparent 72%)",
+          }}
+        />
+        {/* 侧边竖排刊名 */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-2 top-1/2 hidden -translate-y-1/2 text-[11px] uppercase tracking-[0.4em] text-zinc-400 [writing-mode:vertical-rl] lg:block"
+        >
+          Course Reviews · Vol.01
+        </span>
+
+        {/* 旋转评价碎片（桌面） */}
+        {CHIPS.map((c) => (
+          <span
+            key={c.t}
+            aria-hidden
+            className={`absolute hidden whitespace-nowrap px-3 py-1 text-sm font-medium shadow-[3px_3px_0_0_rgba(24,24,27,0.12)] transition-transform duration-300 hover:rotate-0 md:inline-block ${c.cls}`}
+          >
+            {c.t}
+          </span>
+        ))}
+
+        {/* 主文案 */}
+        <div className="relative z-10 max-w-2xl">
+          <p className="mb-6 text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
+            Vol.01 — Campus course reviews
+          </p>
+          <h1 className="font-black leading-[0.92] tracking-[-0.02em]">
+            <span className="block text-[clamp(2.8rem,9vw,6.5rem)]">STOP GUESSING</span>
+            <span
+              className="mt-1 block text-[clamp(2rem,6.2vw,4.2rem)] font-medium italic tracking-[-0.01em] text-zinc-700"
+              style={serif}
+            >
+              which course to take.
             </span>
-            <h1 className="mt-6 text-balance text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
-              选课之前，
-              <br />
-              先听听学长学姐
-            </h1>
-            <p className="mx-auto mt-5 max-w-md text-pretty text-base leading-relaxed text-white/70">
-              理工课探汇聚同学们的真实选课体验：给分松不松、作业多不多、到底有没有收获。匿名分享，帮你避开踩坑、选到好课。
-            </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link
-                href="/courses"
-                className="w-full rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#06070d] transition-transform hover:scale-[1.03] sm:w-auto"
-              >
-                浏览课程评价
-              </Link>
-              <Link
-                href={user ? "/courses/new" : "/register"}
-                className="w-full rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/10 sm:w-auto"
-              >
-                {user ? "分享一门课" : "注册分享你的课"}
-              </Link>
-            </div>
+          </h1>
+          <p className="mt-7 max-w-md text-base leading-relaxed text-zinc-600">
+            Real reviews from students who sat through it: grading, workload, and
+            whether you'll actually learn anything. Anonymous and honest.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/courses"
+              className="bg-zinc-900 px-7 py-3.5 text-center text-sm font-semibold text-[#f4f4f2] transition-transform hover:-translate-y-0.5"
+            >
+              Browse reviews →
+            </Link>
+            <Link
+              href={user ? "/courses/new" : "/register"}
+              className="border border-zinc-900 px-7 py-3.5 text-center text-sm font-semibold transition-colors hover:bg-zinc-900 hover:text-[#f4f4f2]"
+            >
+              {user ? "Share a course" : "Write a review"}
+            </Link>
+          </div>
+
+          {/* 移动端碎片（在流内，避免绝对定位拥挤） */}
+          <div className="mt-8 flex flex-wrap gap-2 md:hidden">
+            {CHIPS.slice(0, 4).map((c) => (
+              <span key={c.t} aria-hidden className="border border-zinc-900 px-2.5 py-1 text-xs font-medium">
+                {c.t}
+              </span>
+            ))}
           </div>
         </div>
+
+        <span aria-hidden className="absolute bottom-4 right-6 text-xs tracking-[0.3em] text-zinc-400" style={serif}>
+          001
+        </span>
       </section>
 
-      {/* 价值三卡 */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 py-24">
-        <h2 className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">
-          把选课的信息差，补回来
-        </h2>
-        <p className="mx-auto mt-3 max-w-md text-center text-white/60">
-          教务系统只有课名和学分。真正该知道的，在这里。
-        </p>
-        <div className="mt-12 grid gap-5 sm:grid-cols-3">
-          {VALUE_CARDS.map((card) => (
-            <div
-              key={card.title}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl transition-colors hover:bg-white/[0.07]"
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5 fill-white/80"
-                  aria-hidden
-                >
-                  {card.icon}
-                </svg>
-              </span>
-              <h3 className="mt-4 text-lg font-semibold">{card.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-white/60">
-                {card.body}
-              </p>
+      {/* 跑马灯 */}
+      <div className="relative z-20 overflow-hidden border-y border-zinc-900 bg-zinc-900 py-3 text-[#f4f4f2]">
+        <div className="flex w-max animate-marquee gap-8 whitespace-nowrap pr-8 text-sm font-semibold uppercase tracking-[0.2em]">
+          {[...TICKER, ...TICKER].map((t, i) => (
+            <span key={i} className="flex items-center gap-8">
+              {t}
+              <span className="text-zinc-500">✦</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* 价值 01/02/03 */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 py-20">
+        <div className="grid gap-px border border-zinc-900 bg-zinc-900 sm:grid-cols-3">
+          {VALUES.map((v) => (
+            <div key={v.n} className="bg-[#f4f4f2] p-7">
+              <div className="text-5xl font-medium text-zinc-300" style={serif}>
+                {v.n}
+              </div>
+              <h3 className="mt-3 text-lg font-extrabold uppercase tracking-wide">{v.t}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">{v.d}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* 热门课程 */}
-      {hotWithAvg.length > 0 && (
-        <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
-          <div className="mb-8 flex items-end justify-between">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              热门课程
-            </h2>
-            <Link
-              href="/courses"
-              className="text-sm text-white/60 transition-colors hover:text-white"
-            >
-              查看全部 →
+      {/* 热门课程：编辑式排行 */}
+      {hot.length > 0 && (
+        <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
+          <div className="mb-6 flex items-end justify-between border-b border-zinc-900 pb-3">
+            <h2 className="text-2xl font-extrabold uppercase tracking-tight">Top rated</h2>
+            <Link href="/courses" className="text-sm text-zinc-500 transition-colors hover:text-zinc-900">
+              View all →
             </Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {hotWithAvg.map((c) => (
-              <Link
-                key={c.id}
-                href={`/courses/${c.id}`}
-                className="group rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.07]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-semibold leading-snug group-hover:text-white">
-                    {c.name}
-                  </h3>
-                  {c.avg != null && (
-                    <span className="shrink-0 text-sm font-semibold text-amber-300">
-                      {c.avg.toFixed(1)}
+          <ul>
+            {hot.map((c, i) => (
+              <li key={c.id}>
+                <Link
+                  href={`/courses/${c.id}`}
+                  className="group flex items-center gap-5 border-b border-zinc-300 py-5 transition-colors hover:bg-zinc-900/[0.03]"
+                >
+                  <span className="w-12 shrink-0 text-3xl font-medium text-zinc-300 group-hover:text-zinc-900" style={serif}>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-lg font-bold">{c.name}</span>
+                    <span className="text-sm text-zinc-500">{c.teacher}</span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block text-xl font-extrabold tabular-nums">
+                      {c.avg != null ? c.avg.toFixed(1) : "—"}
                     </span>
-                  )}
-                </div>
-                <p className="mt-1 text-sm text-white/55">{c.teacher}</p>
-                <div className="mt-4 flex items-center justify-between">
-                  <RatingStars value={c.avg} size="text-sm" />
-                  <span className="text-xs text-white/45">{c.count} 条评价</span>
-                </div>
-              </Link>
+                    <span className="text-xs text-zinc-500">{c.count} reviews</span>
+                  </span>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       )}
 
       {/* 底部 CTA */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-28">
-        <div className="overflow-hidden rounded-3xl border border-white/12 bg-white/[0.05] p-10 text-center backdrop-blur-2xl sm:p-16">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            你的一条评价，可能帮一整届人少踩一个坑
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+        <div className="border border-zinc-900 px-8 py-16 text-center sm:px-16 sm:py-20">
+          <h2 className="mx-auto max-w-3xl text-3xl font-black leading-tight tracking-tight sm:text-5xl">
+            One honest review can save a whole class{" "}
+            <span className="italic font-medium" style={serif}>
+              from a bad pick.
+            </span>
           </h2>
-          <p className="mx-auto mt-3 max-w-md text-white/60">
-            上过的课，认真写一条；要选的课，先来搜一搜。
+          <p className="mx-auto mt-4 max-w-md text-zinc-600">
+            Took a course? Write one. Picking one? Read first.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/courses"
-              className="w-full rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#06070d] transition-transform hover:scale-[1.03] sm:w-auto"
-            >
-              开始浏览
+            <Link href="/courses" className="bg-zinc-900 px-7 py-3.5 text-sm font-semibold text-[#f4f4f2] transition-transform hover:-translate-y-0.5">
+              Browse reviews →
             </Link>
             {!user && (
-              <Link
-                href="/register"
-                className="w-full rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-medium backdrop-blur-md transition-colors hover:bg-white/10 sm:w-auto"
-              >
-                注册账号
+              <Link href="/register" className="border border-zinc-900 px-7 py-3.5 text-sm font-semibold transition-colors hover:bg-zinc-900 hover:text-[#f4f4f2]">
+                Create account
               </Link>
             )}
           </div>
         </div>
       </section>
 
-      <footer className="relative z-10 border-t border-white/10 px-6 py-8 text-center text-sm text-white/40">
-        理工课探 · 在校学生的课程评价社区
+      {/* 版口 */}
+      <footer className="relative z-10 border-t border-zinc-900">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-6 text-xs uppercase tracking-[0.2em] text-zinc-500 sm:flex-row">
+          <span>理工课探 — Campus Course Reviews</span>
+          <span style={serif} className="tracking-[0.3em]">Vol.01 · 2026</span>
+        </div>
       </footer>
     </div>
   );

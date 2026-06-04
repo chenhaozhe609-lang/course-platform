@@ -3,21 +3,6 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-
-  /* 品牌多色光流（Apple Intelligence 风）——落地页光线与强调渐变共用 */
-  --brand-1: #2e9bff; /* blue */
-  --brand-2: #7c5cff; /* indigo */
-  --brand-3: #c44cff; /* purple */
-  --brand-4: #ff5ca8; /* pink */
-  --brand-5: #ff8a4c; /* orange */
-  --brand-gradient: linear-gradient(
-    100deg,
-    var(--brand-1),
-    var(--brand-2),
-    var(--brand-3),
-    var(--brand-4),
-    var(--brand-5)
-  );
 }
 
 @theme inline {
@@ -39,4 +24,22 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* 海报跑马灯（着陆页 ticker） */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 36s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
 }
