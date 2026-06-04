@@ -28,7 +28,7 @@ function buildHref(base: SearchParams, patch: Partial<SearchParams>): string {
 }
 
 const selectCls =
-  "border-2 border-[#0b0b0a] bg-[#efefec] px-2.5 py-2 text-sm font-medium outline-none";
+  "border-2 border-[#0b0b0a] bg-white px-2.5 py-2 text-sm font-semibold text-[#0b0b0a] outline-none [&>option]:bg-white [&>option]:text-[#0b0b0a]";
 
 export default async function CoursesPage({
   searchParams,

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { inputCls, btnPrimary } from "@/lib/ui";
 import { submitCourse, type SubmitCourseState } from "../actions";
 
-const selectCls = "w-full border-2 border-[#0b0b0a] bg-[#efefec] px-3 py-2.5 text-sm outline-none";
+const selectCls = "w-full border-2 border-[#0b0b0a] bg-white px-3 py-2.5 text-sm font-medium text-[#0b0b0a] outline-none [&>option]:bg-white [&>option]:text-[#0b0b0a]";
 
 export default function CourseForm() {
   const [state, action, pending] = useActionState<SubmitCourseState, FormData>(submitCourse, undefined);

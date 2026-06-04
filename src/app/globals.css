@@ -3,6 +3,8 @@
 :root {
   --background: #dededb;
   --foreground: #0b0b0a;
+  /* 全站浅色：让原生控件（下拉选项、滚动条等）始终用浅色主题，避免深色系统下选项看不清 */
+  color-scheme: light;
 }
 
 @theme inline {
