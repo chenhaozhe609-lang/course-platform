@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/dal";
+import { logout } from "@/app/(auth)/actions";
 
 const TYPE_LABEL: Record<string, string> = {
   required: "必修",
@@ -7,11 +10,14 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default async function Home() {
-  const courses = await prisma.course.findMany({
-    where: { status: "published" },
-    orderBy: { createdAt: "desc" },
-    include: { _count: { select: { reviews: true } } },
-  });
+  const [courses, user] = await Promise.all([
+    prisma.course.findMany({
+      where: { status: "published" },
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { reviews: true } } },
+    }),
+    getCurrentUser(),
+  ]);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -25,9 +31,34 @@ export default async function Home() {
               在校学生的课程评价社区
             </p>
           </div>
-          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-            脚手架就绪
-          </span>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-zinc-600 dark:text-zinc-300">{user.nickname}</span>
+              <form action={logout}>
+                <button
+                  type="submit"
+                  className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  退出
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="rounded-full px-3 py-1 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
+              >
+                登录
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-full bg-zinc-900 px-3 py-1 text-sm text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              >
+                注册
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 

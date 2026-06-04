@@ -66,28 +66,30 @@ Comment = { id: string; reviewId: string; author: UserPublic; content: string; c
 
 ---
 
-## 1. 账号 Auth
+## 1. 账号 Auth（Server Actions，M0 已实现）
 
-### 1.1 注册（公开）
-`POST /api/register`
-```jsonc
-// Request
-{ "studentNo": "20210001", "password": "abc12345", "nickname": "可选" }
-```
-校验：`studentNo` 6–20 位字母/数字；`password` ≥8 位且含字母+数字；`nickname` 可空（缺省随机生成）。
-```jsonc
-// 201
-{ "data": { "id": "ckx...", "nickname": "匿名的考拉#3271" }, "error": null }
-```
-错误：`400 VALIDATION_ERROR` / `409 CONFLICT`（学号已注册）。
+> 鉴权未走 REST，而是 Next.js 16 的 **Server Actions**（`src/app/(auth)/actions.ts`），配合 HttpOnly cookie session。表单用 `useActionState` 接收返回的错误状态。其余数据接口（课程/评价）仍为下文的 REST。
 
-### 1.2 登录 / 登出
-由 Auth.js 接管：
-- `POST /api/auth/callback/credentials`（前端用 `signIn('credentials', {...})` 触发）
-- `POST /api/auth/signout`
-- `GET /api/auth/session` → 当前 session（`{ user: UserPublic }` 或 null）
+### 1.1 注册 `register(prevState, formData)`
+入参（表单字段）：`studentNo`、`password`、`nickname?`
+校验：`studentNo` 6–20 位字母/数字；`password` ≥8 位且含字母+数字；`nickname` 可空（缺省随机生成「匿名的{动物}#{4位数}」）。
+- 成功：写 session cookie 并 `redirect('/')`
+- 失败返回 `AuthState`：
+  - 字段不合法 → `{ fieldErrors: { studentNo?: string[], password?: string[], nickname?: string[] } }`
+  - 学号已注册 → `{ error: "该学号已注册，请直接登录" }`
 
-登录入参 `{ studentNo, password }`。失败：凭据错误统一返回 401（不区分「无此账号/密码错」以防枚举）；锁定返回 `429 RATE_LIMITED`。
+### 1.2 登录 `login(prevState, formData)`
+入参：`studentNo`、`password`
+- 成功：写 session cookie、更新 `lastLoginAt`、`redirect('/')`
+- 凭据错误：统一 `{ error: "学号或密码错误" }`（不区分账号/密码，防枚举）
+- 封禁：`{ error: "该账号已被封禁" }`
+- 防爆破：同一学号 15 分钟内失败 5 次 → `{ error: "登录尝试过多，请 15 分钟后再试" }`
+
+### 1.3 登出 `logout()`
+清除 session cookie 并 `redirect('/login')`。
+
+### 1.4 读取当前用户（服务端）
+RSC / Server Action 内用 `getCurrentUser()`（`lib/dal.ts`）→ `UserPublic | null`；需要登录的页面用 `requireUser()`（未登录自动 `redirect('/login')`）。前端无需单独的 session 接口。
 
 ---
 
@@ -269,8 +271,7 @@ V1 进程内内存限流，多实例上线换 Redis。
 ## 8. 接口清单速查
 
 ```
-POST   /api/register                         注册（公开）
-*      /api/auth/*                            Auth.js（登录/登出/session）
+[Action] register / login / logout           账号（Server Actions，见 §1）
 GET    /api/courses                           课程列表（公开）
 POST   /api/courses                           提交新课程（登录）
 GET    /api/courses/:id                        课程详情（公开）

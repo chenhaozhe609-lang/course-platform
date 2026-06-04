@@ -8,7 +8,7 @@
 
 ## 1. 总览
 
-全栈单体（Next.js App Router），前端 RSC + Client Components，后端用 Route Handlers 提供 REST API，数据层 Prisma + SQLite（本地）/ PostgreSQL（生产目标）。鉴权用 Auth.js v5（Credentials）。
+全栈单体（Next.js App Router），前端 RSC + Client Components，后端用 Route Handlers 提供 REST API，数据层 Prisma + SQLite（本地）/ PostgreSQL（生产目标）。鉴权采用 **Next.js 16 官方推荐的自管 session 方案**（`jose` 签发 JWT + HttpOnly cookie + DAL），未使用 Auth.js —— 详见 §4 说明。
 
 ```
 浏览器
@@ -18,12 +18,14 @@
 │  app/                                                                   │
 │   ├─ (页面) RSC：直查 prisma（读路径，无需经过 /api）                     │
 │   ├─ (交互) Client Components：fetch('/api/...')                         │
-│   └─ api/  Route Handlers：REST，写路径 + 需要鉴权的读                   │
-│  middleware.ts  鉴权/路由保护                                            │
+│   ├─ api/  Route Handlers：REST，写路径 + 需要鉴权的读                   │
+│   └─ (auth)/actions.ts  Server Actions：注册/登录/登出                   │
+│  proxy.ts  路由保护（Next 16，原 middleware）                            │
 │  lib/                                                                    │
 │   ├─ db.ts        Prisma client 单例（better-sqlite3 adapter）          │
-│   ├─ auth.ts      Auth.js 配置                                          │
-│   ├─ session.ts   读取当前用户的服务端工具                              │
+│   ├─ session.ts   jose 签发/校验 + cookie 读写                          │
+│   ├─ dal.ts       getCurrentUser / requireUser（安全校验 + 缓存）       │
+│   ├─ password.ts  bcrypt 哈希/校验                                      │
 │   └─ validations/ Zod schema（前后端共用）                             │
 └─────────────────────────────────────────────────────────────────────────┘
   │ Prisma
@@ -47,8 +49,9 @@ SQLite (dev.db)  →  PostgreSQL (prod)
 | 语言 | TypeScript（strict） | 类型安全 |
 | 样式 | Tailwind CSS v4 | 原子化 |
 | UI 组件 | shadcn/ui（按需引入） | 后续接入 |
-| 鉴权 | Auth.js v5（next-auth）Credentials + JWT session | 学号密码登录 |
+| 鉴权 | 自管 session：`jose`(HS256 JWT) + HttpOnly cookie | Next 16 官方推荐，零 beta 依赖；见 §4 |
 | 密码哈希 | bcryptjs | 纯 JS，免原生编译，Vercel 友好 |
+| 表单 | Server Actions + `useActionState` | Next 16 官方认证表单范式 |
 | ORM | Prisma 7 + driver adapter | v7 强制走适配器 |
 | 适配器 | @prisma/adapter-better-sqlite3 / @prisma/adapter-pg | dev / prod |
 | 校验 | Zod + React Hook Form + @hookform/resolvers | 表单与 API |
@@ -64,8 +67,12 @@ src/
 │   ├── layout.tsx                 根布局
 │   ├── page.tsx                   首页（课程列表，RSC）
 │   ├── globals.css
-│   ├── login/page.tsx             登录
-│   ├── register/page.tsx          注册
+│   ├── (auth)/                    鉴权（路由组，M0 已建）
+│   │   ├── actions.ts             Server Actions：register/login/logout
+│   │   ├── login/page.tsx         登录
+│   │   ├── register/page.tsx      注册
+│   │   ├── login-form.tsx         登录表单（client）
+│   │   └── register-form.tsx      注册表单（client）
 │   ├── courses/
 │   │   ├── new/page.tsx           提交新课程
 │   │   └── [id]/page.tsx          课程详情 + 评价列表（RSC）
@@ -74,9 +81,7 @@ src/
 │   ├── me/                        个人中心
 │   │   ├── page.tsx               我的评价
 │   │   └── settings/page.tsx      账号设置
-│   └── api/
-│       ├── auth/[...nextauth]/route.ts
-│       ├── register/route.ts
+│   └── api/                       （数据接口，M1+ 落地）
 │       ├── courses/route.ts                 GET 列表 / POST 提交
 │       ├── courses/[id]/route.ts            GET 详情
 │       ├── courses/[id]/reviews/route.ts    GET 评价列表 / POST 发评价
@@ -92,54 +97,72 @@ src/
 │   ├── review-card.tsx
 │   └── review-form.tsx
 ├── lib/
-│   ├── db.ts                      Prisma 单例（已建）
-│   ├── auth.ts                    Auth.js 配置
-│   ├── session.ts                 getCurrentUser() 等
-│   ├── api.ts                     统一响应/错误封装
-│   ├── ratelimit.ts               简单限流
+│   ├── db.ts                      Prisma 单例（M0 已建）
+│   ├── session.ts                 jose 签发/校验 + cookie（M0 已建）
+│   ├── dal.ts                     getCurrentUser/requireUser（M0 已建）
+│   ├── password.ts                bcrypt 哈希/校验（M0 已建）
+│   ├── nickname.ts                随机匿名昵称（M0 已建）
+│   ├── api.ts                     统一响应/错误封装（M1+）
+│   ├── ratelimit.ts               简单限流（M4）
 │   └── validations/
-│       ├── auth.ts                注册/登录 schema
-│       ├── course.ts              提交课程 schema
-│       └── review.ts              评价/评论 schema
+│       ├── auth.ts                注册/登录 schema（M0 已建）
+│       ├── course.ts              提交课程 schema（M1）
+│       └── review.ts              评价/评论 schema（M2）
 ├── generated/prisma/              Prisma client（gitignore）
-└── middleware.ts                  路由保护
+└── proxy.ts                       路由保护（Next 16，M0 已建）
 ```
 
 ---
 
-## 4. 鉴权设计
+## 4. 鉴权设计（M0 已实现）
 
-### 4.1 方案
-- Auth.js v5，`Credentials` provider，session 策略 `jwt`。
-- 注册走自有 `/api/register`（Auth.js 不管注册），登录走 Auth.js 的 `authorize`。
+### 4.0 为什么不用 Auth.js
+最初计划用 Auth.js v5。落地时改为 **Next.js 16 官方认证指南的自管 session 方案**，原因：
+1. Next 16 把 `middleware` 更名为 `proxy`、运行时调整，Auth.js v5 仍为 **beta**，对全新 Next 16 兼容性无保证，接入风险高。
+2. 官方文档直接示范 `jose` + `cookies()` + DAL 模式，为当前版本量身定制，零 beta 依赖、依赖更少、完全满足「学号+密码」的简单需求。
+3. 对用户体验无差别，将来如需第三方登录/SSO 可平滑切回 Auth.js。
 
-### 4.2 注册流程
+### 4.1 组成
+| 文件 | 职责 |
+|------|------|
+| `lib/session.ts` | `jose` 签发/校验 HS256 JWT；读写 HttpOnly cookie（`session`，7 天） |
+| `lib/password.ts` | bcrypt 哈希/校验（server-only） |
+| `lib/dal.ts` | `getCurrentUser()`（回查 DB、`react.cache` 去重、剥离敏感字段）、`requireUser()`/`requireAdmin()` |
+| `lib/validations/auth.ts` | Zod：注册/登录入参 |
+| `app/(auth)/actions.ts` | Server Actions：`register` / `login` / `logout` |
+| `proxy.ts` | 乐观路由保护（仅看 cookie 是否存在） |
+
+### 4.2 注册流程（Server Action `register`）
 ```
-POST /api/register { studentNo, password, nickname? }
+表单 → register(prevState, formData)
   → Zod 校验（学号 6-20 位字母数字；密码 ≥8 位含字母+数字）
-  → 查 studentNo 是否已存在 → 存在则 409
+  → findUnique(studentNo) 已存在 → 返回 { error: '该学号已注册' }
   → bcrypt.hash(password, 10)
-  → nickname 缺省时生成「匿名的{动物}#{4位数}」
-  → 创建 User，返回 { id, nickname }（绝不返回 studentNo/hash）
+  → nickname 缺省 → generateNickname()「匿名的{动物}#{4位数}」
+  → user.create → createSession({ userId, role, nickname }) 写 cookie
+  → redirect('/')
 ```
 
-### 4.3 登录流程
+### 4.3 登录流程（Server Action `login`）
 ```
-signIn('credentials', { studentNo, password })
-  → authorize(): 查 User by studentNo
-  → bcrypt.compare → 失败计数（见 4.4）
-  → 通过则 JWT 写入 { sub: user.id, role, nickname }
+表单 → login(prevState, formData)
+  → Zod 校验 → 防爆破检查（见 4.4）
+  → findUnique(studentNo) + bcrypt.compare
+  → 失败：记一次失败，统一返回 '学号或密码错误'（不区分账号/密码，防枚举）
+  → banned：返回 '该账号已被封禁'
+  → 成功：清除失败计数、更新 lastLoginAt、createSession、redirect('/')
 ```
 
 ### 4.4 防爆破
-- 登录失败计数（内存 Map 或后续接 Redis），同一学号 15 分钟内失败 5 次锁定。
-- V1 用进程内内存实现，标注「单实例有效，上线多实例需换 Redis」。
+- 进程内内存计数（`Map<studentNo, {count, firstAt}>`），同一学号 15 分钟内失败 5 次锁定。
+- **单实例有效，上线多实例需换 Redis**（已在代码注释标注）。
 
 ### 4.5 会话与授权
-- JWT 中只放 `userId / role / nickname`，**不放 studentNo**。
-- `middleware.ts` 保护需要登录的路由：`/me/**`、`/reviews/new`、`/courses/new`，以及写类 `/api/**`。
-- 管理员路由 `/admin/**`（V1.5）校验 `role === 'admin'`。
-- 服务端用 `getCurrentUser()` 从 session 取用户；API 内二次校验 `status !== 'banned'`。
+- JWT payload 只放 `userId / role / nickname`，**不含 studentNo**。
+- cookie：`httpOnly` + `sameSite=lax` + `secure`(仅生产) + `maxAge=7d`。
+- `proxy.ts` 乐观保护 `/me`、`/reviews/new`、`/courses/new`（只看 cookie 存在与否）；登录用户访问 `/login`、`/register` 重定向回首页。
+- **真正的安全校验在数据源**：页面/Action 用 `getCurrentUser()`（回查 DB 确认存在且 `status !== 'banned'`），`requireUser()` 未登录则 `redirect('/login')`。
+- 管理员路由 `/admin/**`（V1.5）用 `requireAdmin()`。
 
 ---
 
@@ -244,7 +267,7 @@ prisma.$transaction([
 
 | 阶段 | 技术任务 |
 |------|---------|
-| M0（本周） | ✅ 脚手架 + Prisma + 迁移 + seed；接 Auth.js + 注册/登录 + middleware |
+| M0（本周） | ✅ 脚手架 + Prisma + 迁移 + seed；✅ 自管 session 鉴权 + 注册/登录/登出 + proxy 路由保护 |
 | M1 | 课程列表/详情/搜索（RSC）+ 提交新课程 API |
 | M2 | 发/编辑/追加评价 API + 评价表单 + 评分聚合 |
 | M3 | 点赞/有用/评论 API + 个人中心 |
