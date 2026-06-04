@@ -41,7 +41,7 @@ export default async function CourseDetailPage({
       <SiteHeader />
 
       <main className="mx-auto max-w-3xl px-6 py-8">
-        <Link href="/" className="mb-4 inline-block text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+        <Link href="/courses" className="mb-4 inline-block text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
           ← 返回课程列表
         </Link>
 

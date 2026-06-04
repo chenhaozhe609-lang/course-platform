@@ -75,7 +75,7 @@ export async function register(
     nickname: user.nickname,
   });
 
-  redirect("/");
+  redirect("/courses");
 }
 
 export async function login(
@@ -120,7 +120,7 @@ export async function login(
     nickname: user.nickname,
   });
 
-  redirect("/");
+  redirect("/courses");
 }
 
 export async function logout(): Promise<void> {

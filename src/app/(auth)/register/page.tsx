@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/dal";
 import RegisterForm from "../register-form";
 
 export default async function RegisterPage() {
-  if (await getCurrentUser()) redirect("/");
+  if (await getCurrentUser()) redirect("/courses");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">

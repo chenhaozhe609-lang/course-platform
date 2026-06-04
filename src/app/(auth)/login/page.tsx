@@ -5,7 +5,7 @@ import LoginForm from "../login-form";
 
 export default async function LoginPage() {
   // 已登录则不再展示登录页
-  if (await getCurrentUser()) redirect("/");
+  if (await getCurrentUser()) redirect("/courses");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">

@@ -22,7 +22,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (AUTH_PAGES.includes(pathname) && hasSession) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/courses", request.url));
   }
 
   return NextResponse.next();

@@ -42,6 +42,9 @@ next-env.d.ts
 
 /src/generated/prisma
 
+# impeccable skill working data (local critique snapshots)
+/.impeccable
+
 # prisma sqlite (local dev db)
 /dev.db
 /dev.db-journal
