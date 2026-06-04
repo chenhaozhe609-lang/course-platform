@@ -145,6 +145,8 @@ RSC / Server Action 内用 `getCurrentUser()`（`lib/dal.ts`）→ `UserPublic |
 
 ## 3. 评价 Reviews
 
+> **实现说明（M2 已落地）**：评价列表由 **RSC 直查**（`lib/reviews.ts: listReviews`，排序 `helpful`/`latest`，详情页 `?sort=` 承接）；发布/编辑/追加/删除均为 **Server Actions**（`app/reviews/actions.ts`：`createReview`/`updateReview`/`appendReview`/`deleteReview`），表单 `components/review-form.tsx`。一人一课一评由 `@@unique([userId,courseId])` 保证，重复时引导至编辑页。评分聚合由 `getCourseDetail` 用 `prisma.review.aggregate` 实时计算。`tags` 以 JSON 字符串存储、读时解析。下方 REST 为可选未来面。
+
 ### 3.1 某课程的评价列表（公开）
 `GET /api/courses/:id/reviews?sort=helpful&page=1`
 - `sort`：`helpful`(默认) | `latest`

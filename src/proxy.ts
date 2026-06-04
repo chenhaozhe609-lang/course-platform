@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 // 这里只做「乐观校验」——仅判断 session cookie 是否存在，
 // 真正的身份/权限校验由页面与 DAL（getCurrentUser）在数据源处完成。
 
-const PROTECTED_PREFIXES = ["/me", "/courses/new", "/reviews/new"];
+const PROTECTED_PREFIXES = ["/me", "/courses/new", "/reviews"];
 const AUTH_PAGES = ["/login", "/register"];
 
 export function proxy(request: NextRequest) {

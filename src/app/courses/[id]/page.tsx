@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { RatingStars } from "@/components/rating-stars";
+import { ReviewCard } from "@/components/review-card";
 import { getCurrentUser } from "@/lib/dal";
 import { getCourseDetail } from "@/lib/courses";
+import { listReviews, getMyReviewForCourse, type ReviewSort } from "@/lib/reviews";
 import { COURSE_TYPE_LABEL } from "@/lib/validations/course";
 
 const DIMENSIONS = [
@@ -15,15 +17,24 @@ const DIMENSIONS = [
 
 export default async function CourseDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ sort?: string }>;
 }) {
   const { id } = await params;
+  const { sort } = await searchParams;
   const user = await getCurrentUser();
   const data = await getCourseDetail(id, user?.id);
   if (!data) notFound();
 
   const { course, ratings, reviewCount } = data;
+  const reviewSort: ReviewSort = sort === "latest" ? "latest" : "helpful";
+
+  const [reviews, myReview] = await Promise.all([
+    listReviews(course.id, reviewSort),
+    user ? getMyReviewForCourse(course.id, user.id) : Promise.resolve(null),
+  ]);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -86,20 +97,58 @@ export default async function CourseDetailPage({
           </div>
         </section>
 
-        {/* 评价区（M2） */}
+        {/* 评价区 */}
         <section className="mt-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400">学生评价</h2>
-            <span
-              className="cursor-not-allowed rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-400 dark:border-zinc-800"
-              title="评价功能将在 M2 上线"
-            >
-              写评价（即将上线）
-            </span>
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                学生评价（{reviewCount}）
+              </h2>
+              {reviewCount > 0 && (
+                <div className="flex gap-1 text-xs">
+                  <Link
+                    href={`/courses/${course.id}?sort=helpful`}
+                    className={reviewSort === "helpful" ? "font-semibold text-zinc-900 dark:text-zinc-100" : "text-zinc-400"}
+                  >
+                    最有用
+                  </Link>
+                  <span className="text-zinc-300">·</span>
+                  <Link
+                    href={`/courses/${course.id}?sort=latest`}
+                    className={reviewSort === "latest" ? "font-semibold text-zinc-900 dark:text-zinc-100" : "text-zinc-400"}
+                  >
+                    最新
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {!user ? (
+              <Link href="/login" className="rounded-full border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+                登录后写评价
+              </Link>
+            ) : myReview ? (
+              <Link href={`/reviews/${myReview.id}/edit`} className="rounded-full border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+                编辑我的评价
+              </Link>
+            ) : (
+              <Link href={`/reviews/new?courseId=${course.id}`} className="rounded-full bg-zinc-900 px-3 py-1 text-sm text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300">
+                写评价
+              </Link>
+            )}
           </div>
-          <div className="rounded-xl border border-dashed border-zinc-300 p-10 text-center text-sm text-zinc-500 dark:border-zinc-700">
-            评分与评价功能将在下一阶段（M2）上线。
-          </div>
+
+          {reviews.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-zinc-300 p-10 text-center text-sm text-zinc-500 dark:border-zinc-700">
+              还没有评价，来做第一个分享的人。
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {reviews.map((r) => (
+                <ReviewCard key={r.id} review={r} isOwner={r.userId === user?.id} />
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </div>
