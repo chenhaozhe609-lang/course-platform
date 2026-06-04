@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
+import { rateLimit, DAY } from "@/lib/ratelimit";
+import { moderate } from "@/lib/moderation";
 import { submitCourseSchema } from "@/lib/validations/course";
 
 export type SubmitCourseState =
@@ -39,6 +41,15 @@ export async function submitCourse(
   }
 
   const { name, teacher, department, type, credit } = parsed.data;
+
+  const rl = rateLimit(`course:${user.id}`, 10, DAY);
+  if (!rl.ok) {
+    const min = Math.max(1, Math.ceil(rl.retryAfterSec / 60));
+    return { error: `提交过于频繁，请约 ${min} 分钟后再试` };
+  }
+  if (moderate(`${name} ${teacher} ${department ?? ""}`).flagged) {
+    return { error: "课程信息包含不当词汇，请修改后重试" };
+  }
 
   // 去重：同名同教师的已上架课程视为重复，引导去已有课程
   const dup = await prisma.course.findFirst({

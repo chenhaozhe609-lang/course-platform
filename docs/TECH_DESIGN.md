@@ -236,9 +236,11 @@ prisma.$transaction([
 | 身份脱敏 | DTO 层剥离 studentNo / passwordHash |
 | XSS | 文字内容输出转义（React 默认），不引入裸 HTML |
 | 越权 | 评价/评论的编辑删除校验 `ownerId === currentUserId` |
-| 防刷 | 写接口限流；一人一课一评由唯一约束保证 |
-| 敏感词 | 发布时基础词表过滤，命中转 `pending`（V1 可先留钩子） |
-| 审计 | 管理操作写 `AuditLog` |
+| 防刷 | ✅ 写接口限流 `lib/ratelimit`（注册 5/h·IP、发评价 10/天、追评 20/天、评论 30/h、点赞 200/h、提交课程 10/天）；一人一课一评由唯一约束保证。单实例内存版，多实例需换 Redis |
+| 敏感词 | ✅ `lib/moderation` 统一钩子（归一化 + 词表），命中即拦截并提示用户修改（评价/追评/评论/课程名）。V1 用内置小词表，生产替换为可维护词库/三方内容安全 |
+| 审计 | 管理操作写 `AuditLog`（M5 管理后台接入） |
+
+> **M4 安全自查结论**：无 `dangerouslySetInnerHTML`/`eval`/`innerHTML`；`studentNo`/`passwordHash` 仅服务端用于注册/登录/改密校验，DTO 从不返回前台（`getCurrentUser` 仅回 id/nickname/role）；所有写操作均 `getCurrentUser` + 越权校验（编辑/删除校验 owner）；Prisma 参数化无注入；session 密钥缺失即启动报错；cookie httpOnly/sameSite/secure(prod)。整体联调 smoke（敏感词/限流/发评价→点赞事务→评论→编辑→追评→级联删除）全过。
 
 ---
 
@@ -271,7 +273,7 @@ prisma.$transaction([
 | M1 | ✅ 课程列表/搜索/筛选/分页（RSC）+ 详情页 + 提交新课程（Server Action，待审核） |
 | M2 | ✅ 发/编辑/追加/删除评价（Server Action）+ 评价表单 + 详情页评价列表 + 评分聚合 |
 | M3 | ✅ 点赞/有用（事务+冗余计数）+ 评论（单层）+ 个人中心（我的评价/点赞/评论/设置） |
-| M4 | 限流、敏感词钩子、安全自查、整体联调 |
+| M4 | ✅ 写接口限流（lib/ratelimit）+ 敏感词钩子（lib/moderation，命中即拦截）+ 安全自查 + 整体联调 smoke |
 | M5 | 举报 + 管理后台（V1.5） |
 
 ---

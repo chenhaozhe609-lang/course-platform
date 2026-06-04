@@ -124,7 +124,7 @@ export default async function LandingPage() {
                 <span className="block text-[clamp(3rem,12vw,8rem)]" style={{ ...disp, filter: "url(#ink)" }}>First.</span>
               </h1>
               <p className="mt-5 max-w-md text-[15px] leading-relaxed text-[#0b0b0a]/75">
-                Real reviews from students who actually sat through it — grading, workload, and whether you'll learn a thing. Anonymous and honest.
+                Real reviews from students who actually sat through it — grading, workload, and whether you’ll learn a thing. Anonymous and honest.
               </p>
               <div className="mt-6 flex items-center gap-4">
                 <span className="text-sm font-black uppercase tracking-[0.18em]">Rate</span>
@@ -172,7 +172,7 @@ export default async function LandingPage() {
               </div>
             </Scrap>
           ))}
-          <Annote className="-top-8 left-[18%] hidden sm:block" rotate={-8} size="text-2xl">3 steps. that's it.</Annote>
+          <Annote className="-top-8 left-[18%] hidden sm:block" rotate={-8} size="text-2xl">3 steps. that’s it.</Annote>
           <div className="absolute -bottom-7 right-[22%] hidden sm:block"><Stamp rotate={7}>Free forever</Stamp></div>
         </div>
       </section>

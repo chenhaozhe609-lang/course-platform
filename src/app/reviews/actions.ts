@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
+import { rateLimit, HOUR, DAY } from "@/lib/ratelimit";
+import { moderate } from "@/lib/moderation";
 import {
   createReviewSchema,
   appendReviewSchema,
@@ -18,6 +20,13 @@ export type ReviewFormState =
       fieldErrors?: Record<string, string[]>;
     }
   | undefined;
+
+function tooFast(retryAfterSec: number): ReviewFormState {
+  const min = Math.max(1, Math.ceil(retryAfterSec / 60));
+  return { error: `操作过于频繁，请约 ${min} 分钟后再试` };
+}
+
+const FLAGGED: ReviewFormState = { error: "内容包含不当词汇，请修改后重新发布" };
 
 function flattenZod(error: {
   issues: { path: PropertyKey[]; message: string }[];
@@ -69,6 +78,10 @@ export async function createReview(
   const parsed = parseReviewForm(formData);
   if (!parsed.success) return { fieldErrors: flattenZod(parsed.error) };
 
+  const rl = rateLimit(`review:${user.id}`, 10, DAY);
+  if (!rl.ok) return tooFast(rl.retryAfterSec);
+  if (moderate(parsed.data.content).flagged) return FLAGGED;
+
   const { tags, ...rest } = parsed.data;
   await prisma.review.create({
     data: {
@@ -100,6 +113,7 @@ export async function updateReview(
 
   const parsed = parseReviewForm(formData);
   if (!parsed.success) return { fieldErrors: flattenZod(parsed.error) };
+  if (moderate(parsed.data.content).flagged) return FLAGGED;
 
   const { tags, ...rest } = parsed.data;
   await prisma.review.update({
@@ -132,6 +146,10 @@ export async function appendReview(
   const parsed = appendReviewSchema.safeParse({ content: formData.get("content") });
   if (!parsed.success) return { fieldErrors: flattenZod(parsed.error) };
 
+  const rl = rateLimit(`append:${user.id}`, 20, DAY);
+  if (!rl.ok) return tooFast(rl.retryAfterSec);
+  if (moderate(parsed.data.content).flagged) return FLAGGED;
+
   await prisma.reviewAppend.create({
     data: { reviewId, content: parsed.data.content },
   });
@@ -161,6 +179,7 @@ export async function toggleReaction(
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!REACTION_TYPES.includes(type)) return;
+  if (!rateLimit(`reaction:${user.id}`, 200, HOUR).ok) return;
 
   const review = await prisma.review.findUnique({
     where: { id: reviewId },
@@ -213,6 +232,10 @@ export async function addComment(
 
   const parsed = commentSchema.safeParse({ content: formData.get("content") });
   if (!parsed.success) return { fieldErrors: flattenZod(parsed.error) };
+
+  const rl = rateLimit(`comment:${user.id}`, 30, HOUR);
+  if (!rl.ok) return tooFast(rl.retryAfterSec);
+  if (moderate(parsed.data.content).flagged) return FLAGGED;
 
   await prisma.comment.create({
     data: { reviewId, userId: user.id, content: parsed.data.content },

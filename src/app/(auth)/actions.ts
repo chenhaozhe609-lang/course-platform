@@ -1,11 +1,18 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSession, deleteSession } from "@/lib/session";
 import { generateNickname } from "@/lib/nickname";
+import { rateLimit, HOUR } from "@/lib/ratelimit";
 import { registerSchema, loginSchema } from "@/lib/validations/auth";
+
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "local").trim();
+}
 
 export type AuthState =
   | {
@@ -50,6 +57,12 @@ export async function register(
 
   if (!parsed.success) {
     return { fieldErrors: z_flatten(parsed.error) };
+  }
+
+  const rl = rateLimit(`register:${await clientIp()}`, 5, HOUR);
+  if (!rl.ok) {
+    const min = Math.max(1, Math.ceil(rl.retryAfterSec / 60));
+    return { error: `注册过于频繁，请约 ${min} 分钟后再试` };
   }
 
   const { studentNo, password, nickname } = parsed.data;
