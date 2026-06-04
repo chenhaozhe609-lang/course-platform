@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/dal";
 import { SiteHeader } from "@/components/site-header";
+import { disp } from "@/lib/ui";
 import { MeNav } from "./me-nav";
 
 export default async function MeLayout({
@@ -10,10 +11,10 @@ export default async function MeLayout({
   await requireUser();
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen">
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-6 py-8">
-        <h1 className="mb-4 text-xl font-semibold">个人中心</h1>
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <h1 className="mb-4 text-4xl uppercase leading-none" style={disp}>My desk</h1>
         <MeNav />
         {children}
       </main>

@@ -1,4 +1,6 @@
 import { requireUser } from "@/lib/dal";
+import { Scrap } from "@/components/collage";
+import { disp } from "@/lib/ui";
 import { NicknameForm, PasswordForm } from "./settings-forms";
 
 export default async function SettingsPage() {
@@ -6,15 +8,19 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-4 text-sm font-semibold">修改昵称</h2>
-        <NicknameForm current={user.nickname} />
-      </section>
+      <Scrap rotate={-0.5}>
+        <div className="px-6 py-6">
+          <h2 className="mb-4 text-xl uppercase" style={disp}>昵称</h2>
+          <NicknameForm current={user.nickname} />
+        </div>
+      </Scrap>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-4 text-sm font-semibold">修改密码</h2>
-        <PasswordForm />
-      </section>
+      <Scrap rotate={0.5}>
+        <div className="px-6 py-6">
+          <h2 className="mb-4 text-xl uppercase" style={disp}>密码</h2>
+          <PasswordForm />
+        </div>
+      </Scrap>
     </div>
   );
 }

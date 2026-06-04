@@ -1,21 +1,25 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
+import { Scrap, Stamp } from "@/components/collage";
+import { disp } from "@/lib/ui";
 import LoginForm from "../login-form";
 
 export default async function LoginPage() {
-  // 已登录则不再展示登录页
   if (await getCurrentUser()) redirect("/courses");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
+    <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <Link href="/" className="mb-6 block text-center">
-          <span className="text-xl font-bold text-zinc-900 dark:text-zinc-50">理工课探</span>
-        </Link>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h1 className="mb-5 text-lg font-semibold">登录</h1>
-          <LoginForm />
+        <Link href="/" className="mb-6 block text-center text-2xl font-black tracking-tight">理工课探</Link>
+        <div className="relative">
+          <div className="absolute -right-4 -top-4 z-10 hidden sm:block"><Stamp rotate={8}>Welcome back</Stamp></div>
+          <Scrap rotate={-1}>
+            <div className="px-6 py-7">
+              <h1 className="mb-5 text-2xl uppercase" style={disp}>Log in</h1>
+              <LoginForm />
+            </div>
+          </Scrap>
         </div>
       </div>
     </div>

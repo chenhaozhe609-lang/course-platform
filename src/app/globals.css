@@ -1,23 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #dededb;
+  --foreground: #0b0b0a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* 拉丁 Sora + 中文系统 CJK 栈，修复此前 body 写死 Arial 导致字体配置失效的问题 */
-  --font-sans: var(--font-sora), "PingFang SC", "HarmonyOS Sans SC",
+  /* Archivo（拉丁）+ 系统 CJK 栈 */
+  --font-sans: var(--font-archivo), "PingFang SC", "HarmonyOS Sans SC",
     "Microsoft YaHei", system-ui, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
@@ -26,7 +19,7 @@ body {
   font-family: var(--font-sans);
 }
 
-/* 海报跑马灯（着陆页 ticker） */
+/* 海报跑马灯 */
 @keyframes marquee {
   from {
     transform: translateX(0);

@@ -6,46 +6,48 @@ export async function SiteHeader() {
   const user = await getCurrentUser();
 
   return (
-    <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex flex-col">
-          <span className="text-xl font-bold text-zinc-900 dark:text-zinc-50">理工课探</span>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">在校学生的课程评价社区</span>
+    <header className="border-b-2 border-[#0b0b0a]">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
+        <Link href="/" className="flex items-baseline gap-3">
+          <span className="text-lg font-black tracking-tight">理工课探</span>
+          <span className="hidden text-[10px] uppercase tracking-[0.3em] text-[#0b0b0a]/55 sm:inline">
+            Course Reviews
+          </span>
         </Link>
 
         {user ? (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm">
             <Link
               href="/courses/new"
-              className="rounded-full bg-zinc-900 px-3 py-1 text-sm text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              className="bg-[#0b0b0a] px-3 py-1.5 font-bold uppercase tracking-wide text-[#e9e9e4] transition-transform hover:-translate-y-0.5"
             >
-              + 提交课程
+              + Course
             </Link>
-            <Link href="/me" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50">
+            <Link
+              href="/me"
+              className="border-2 border-[#0b0b0a] px-3 py-1.5 font-bold transition-colors hover:bg-[#0b0b0a] hover:text-[#e9e9e4]"
+            >
               {user.nickname}
             </Link>
             <form action={logout}>
               <button
                 type="submit"
-                className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                className="px-2 py-1.5 text-xs uppercase tracking-wide text-[#0b0b0a]/55 transition-colors hover:text-[#0b0b0a]"
               >
-                退出
+                Out
               </button>
             </form>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className="rounded-full px-3 py-1 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
-            >
-              登录
+          <div className="flex items-center gap-2 text-sm">
+            <Link href="/login" className="px-3 py-1.5 text-[#0b0b0a]/70 transition-colors hover:text-[#0b0b0a]">
+              Log in
             </Link>
             <Link
               href="/register"
-              className="rounded-full bg-zinc-900 px-3 py-1 text-sm text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              className="bg-[#0b0b0a] px-4 py-1.5 font-bold uppercase tracking-wide text-[#e9e9e4] transition-transform hover:-translate-y-0.5"
             >
-              注册
+              Sign up
             </Link>
           </div>
         )}

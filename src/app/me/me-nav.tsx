@@ -13,17 +13,15 @@ const TABS = [
 export function MeNav() {
   const pathname = usePathname();
   return (
-    <nav className="mb-6 flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+    <nav className="mb-6 flex flex-wrap gap-2 border-b-2 border-[#0b0b0a] pb-3">
       {TABS.map((t) => {
         const active = pathname === t.href;
         return (
           <Link
             key={t.href}
             href={t.href}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm ${
-              active
-                ? "border-zinc-900 font-medium text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
-                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            className={`px-3 py-1.5 text-sm font-bold uppercase tracking-wide transition-colors ${
+              active ? "bg-[#0b0b0a] text-[#e9e9e4]" : "text-[#0b0b0a]/55 hover:text-[#0b0b0a]"
             }`}
           >
             {t.label}

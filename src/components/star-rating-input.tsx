@@ -32,15 +32,15 @@ export function StarRatingInput({
               onClick={() => setValue(i)}
               onMouseEnter={() => setHover(i)}
               className={`px-0.5 text-2xl leading-none transition-colors ${
-                shown >= i ? "text-amber-500" : "text-zinc-300 dark:text-zinc-600"
+                shown >= i ? "text-[#0b0b0a]" : "text-[#0b0b0a]/25"
               }`}
             >
               ★
             </button>
           ))}
         </div>
-        <span className="w-6 text-sm text-zinc-400">{value || "—"}</span>
-        {error && <span className="text-xs text-red-500">{error}</span>}
+        <span className="w-6 text-sm text-[#0b0b0a]/45">{value || "—"}</span>
+        {error && <span className="text-xs font-bold text-[#0b0b0a]">{error}</span>}
       </div>
     </div>
   );
