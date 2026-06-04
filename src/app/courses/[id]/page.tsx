@@ -32,7 +32,7 @@ export default async function CourseDetailPage({
   const reviewSort: ReviewSort = sort === "latest" ? "latest" : "helpful";
 
   const [reviews, myReview] = await Promise.all([
-    listReviews(course.id, reviewSort),
+    listReviews(course.id, reviewSort, user?.id),
     user ? getMyReviewForCourse(course.id, user.id) : Promise.resolve(null),
   ]);
 
@@ -145,7 +145,7 @@ export default async function CourseDetailPage({
           ) : (
             <div className="space-y-3">
               {reviews.map((r) => (
-                <ReviewCard key={r.id} review={r} isOwner={r.userId === user?.id} />
+                <ReviewCard key={r.id} review={r} currentUserId={user?.id} />
               ))}
             </div>
           )}

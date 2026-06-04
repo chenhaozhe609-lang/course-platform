@@ -1,11 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import {
   createReviewSchema,
   appendReviewSchema,
+  commentSchema,
+  REACTION_TYPES,
+  type ReactionType,
 } from "@/lib/validations/review";
 
 export type ReviewFormState =
@@ -147,4 +151,88 @@ export async function deleteReview(reviewId: string): Promise<void> {
 
   await prisma.review.delete({ where: { id: reviewId } });
   redirect(`/courses/${review.courseId}`);
+}
+
+/** 点赞 / 标记有用：切换开关，事务内同步冗余计数 */
+export async function toggleReaction(
+  reviewId: string,
+  type: ReactionType,
+): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!REACTION_TYPES.includes(type)) return;
+
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+    select: { courseId: true },
+  });
+  if (!review) return;
+
+  const existing = await prisma.reaction.findUnique({
+    where: { userId_reviewId_type: { userId: user.id, reviewId, type } },
+    select: { id: true },
+  });
+
+  const countField = type === "like" ? "likeCount" : "helpfulCount";
+
+  if (existing) {
+    await prisma.$transaction([
+      prisma.reaction.delete({ where: { id: existing.id } }),
+      prisma.review.update({
+        where: { id: reviewId },
+        data: { [countField]: { decrement: 1 } },
+      }),
+    ]);
+  } else {
+    await prisma.$transaction([
+      prisma.reaction.create({ data: { userId: user.id, reviewId, type } }),
+      prisma.review.update({
+        where: { id: reviewId },
+        data: { [countField]: { increment: 1 } },
+      }),
+    ]);
+  }
+
+  revalidatePath(`/courses/${review.courseId}`);
+}
+
+/** 发表评论（单层） */
+export async function addComment(
+  reviewId: string,
+  _prev: ReviewFormState,
+  formData: FormData,
+): Promise<ReviewFormState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+    select: { courseId: true },
+  });
+  if (!review) return { error: "评价不存在" };
+
+  const parsed = commentSchema.safeParse({ content: formData.get("content") });
+  if (!parsed.success) return { fieldErrors: flattenZod(parsed.error) };
+
+  await prisma.comment.create({
+    data: { reviewId, userId: user.id, content: parsed.data.content },
+  });
+
+  revalidatePath(`/courses/${review.courseId}`);
+  return undefined;
+}
+
+/** 删除自己的评论 */
+export async function deleteComment(commentId: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const comment = await prisma.comment.findUnique({
+    where: { id: commentId },
+    select: { userId: true, review: { select: { courseId: true } } },
+  });
+  if (!comment || comment.userId !== user.id) return;
+
+  await prisma.comment.delete({ where: { id: commentId } });
+  revalidatePath(`/courses/${comment.review.courseId}`);
 }

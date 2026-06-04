@@ -21,7 +21,9 @@ export async function SiteHeader() {
             >
               + 提交课程
             </Link>
-            <span className="text-sm text-zinc-600 dark:text-zinc-300">{user.nickname}</span>
+            <Link href="/me" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50">
+              {user.nickname}
+            </Link>
             <form action={logout}>
               <button
                 type="submit"

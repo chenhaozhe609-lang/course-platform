@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { RatingStars } from "@/components/rating-stars";
-import { deleteReview } from "@/app/reviews/actions";
+import { AddCommentForm } from "@/components/add-comment-form";
+import {
+  deleteReview,
+  toggleReaction,
+  addComment,
+  deleteComment,
+} from "@/app/reviews/actions";
 
 type ReviewCardData = {
   id: string;
+  userId: string;
   ratingOverall: number;
   ratingScore: number;
   ratingWorkload: number;
@@ -17,6 +24,14 @@ type ReviewCardData = {
   user: { nickname: string };
   tagList: string[];
   appends: { id: string; content: string; createdAt: Date }[];
+  myReactions: string[];
+  comments: {
+    id: string;
+    userId: string;
+    content: string;
+    createdAt: Date;
+    user: { nickname: string };
+  }[];
 };
 
 function fmtDate(d: Date): string {
@@ -29,13 +44,53 @@ const MINI = [
   { key: "ratingGain", label: "收获" },
 ] as const;
 
+function ReactionButton({
+  reviewId,
+  type,
+  label,
+  count,
+  active,
+  loggedIn,
+}: {
+  reviewId: string;
+  type: "like" | "helpful";
+  label: string;
+  count: number;
+  active: boolean;
+  loggedIn: boolean;
+}) {
+  const cls = `flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+    active
+      ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+      : "border-zinc-200 text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+  }`;
+  const text = `${label} ${count}`;
+
+  if (!loggedIn) {
+    return (
+      <Link href="/login" className={cls} title="登录后可操作">
+        {text}
+      </Link>
+    );
+  }
+  return (
+    <form action={toggleReaction.bind(null, reviewId, type)}>
+      <button type="submit" className={cls}>
+        {text}
+      </button>
+    </form>
+  );
+}
+
 export function ReviewCard({
   review,
-  isOwner,
+  currentUserId,
 }: {
   review: ReviewCardData;
-  isOwner: boolean;
+  currentUserId?: string;
 }) {
+  const isOwner = currentUserId != null && currentUserId === review.userId;
+  const loggedIn = currentUserId != null;
   const edited = review.updatedAt.getTime() - review.createdAt.getTime() > 1000;
 
   return (
@@ -95,12 +150,26 @@ export function ReviewCard({
         </div>
       )}
 
+      {/* 操作栏 */}
       <div className="mt-3 flex items-center justify-between text-xs text-zinc-400">
-        <div className="flex items-center gap-3">
-          <span>{fmtDate(review.createdAt)}{edited ? "（已编辑）" : ""}</span>
-          {/* 点赞 / 有用 / 评论 交互在 M3 接入，此处先展示计数 */}
-          <span>有用 {review.helpfulCount}</span>
-          <span>赞 {review.likeCount}</span>
+        <div className="flex items-center gap-2">
+          <ReactionButton
+            reviewId={review.id}
+            type="helpful"
+            label="有用"
+            count={review.helpfulCount}
+            active={review.myReactions.includes("helpful")}
+            loggedIn={loggedIn}
+          />
+          <ReactionButton
+            reviewId={review.id}
+            type="like"
+            label="赞"
+            count={review.likeCount}
+            active={review.myReactions.includes("like")}
+            loggedIn={loggedIn}
+          />
+          <span className="ml-1">{fmtDate(review.createdAt)}{edited ? "（已编辑）" : ""}</span>
         </div>
         {isOwner && (
           <div className="flex items-center gap-2">
@@ -119,6 +188,39 @@ export function ReviewCard({
               </button>
             </form>
           </div>
+        )}
+      </div>
+
+      {/* 评论区 */}
+      <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+        {review.comments.length > 0 && (
+          <ul className="mb-2 space-y-2">
+            {review.comments.map((c) => (
+              <li key={c.id} className="flex items-start justify-between gap-2 text-sm">
+                <p className="text-zinc-700 dark:text-zinc-300">
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                    {c.user.nickname}
+                  </span>
+                  <span className="mx-1 text-zinc-300">·</span>
+                  <span className="whitespace-pre-wrap">{c.content}</span>
+                </p>
+                {currentUserId === c.userId && (
+                  <form action={deleteComment.bind(null, c.id)}>
+                    <button type="submit" className="shrink-0 text-xs text-zinc-400 hover:text-red-500">
+                      删除
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {loggedIn ? (
+          <AddCommentForm action={addComment.bind(null, review.id)} />
+        ) : (
+          <Link href="/login" className="text-xs text-zinc-400 hover:text-zinc-600">
+            登录后参与评论
+          </Link>
         )}
       </div>
     </article>

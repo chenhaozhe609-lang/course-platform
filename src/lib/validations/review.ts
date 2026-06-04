@@ -53,4 +53,15 @@ export const appendReviewSchema = z.object({
     .max(2000, { error: "追加内容最多 2000 字" }),
 });
 
+export const commentSchema = z.object({
+  content: z
+    .string()
+    .trim()
+    .min(1, { error: "评论不能为空" })
+    .max(500, { error: "评论最多 500 字" }),
+});
+
+export const REACTION_TYPES = ["like", "helpful"] as const;
+export type ReactionType = (typeof REACTION_TYPES)[number];
+
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;

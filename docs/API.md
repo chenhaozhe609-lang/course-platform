@@ -193,6 +193,8 @@ RSC / Server Action 内用 `getCurrentUser()`（`lib/dal.ts`）→ `UserPublic |
 
 ## 4. 互动 Reactions / Comments
 
+> **实现说明（M3 已落地）**：点赞/有用为 Server Action `toggleReaction(reviewId, type)`（切换开关，`$transaction` 内同步明细与 `Review.likeCount/helpfulCount`，唯一约束 `@@unique([userId,reviewId,type])` 防重复，`revalidatePath` 原地刷新）。评论为 `addComment`/`deleteComment`（单层，作者可删）。当前用户的反应由 `listReviews(courseId, sort, viewerId)` 随评价一并返回（`myReactions`）。下方 REST 为可选未来面。
+
 ### 4.1 点赞 / 标记有用（登录）
 `POST /api/reviews/:id/reactions`
 ```jsonc
@@ -224,6 +226,8 @@ RSC / Server Action 内用 `getCurrentUser()`（`lib/dal.ts`）→ `UserPublic |
 ---
 
 ## 5. 个人中心 Me（登录）
+
+> **实现说明（M3 已落地）**：`/me` 路由组（`layout.tsx` 内 `requireUser` 守卫 + 子导航），各页 RSC 直查（`listMyReviews`/`listMyReactedReviews`/`listMyComments`）；改昵称/改密码为 Server Actions `updateNickname`/`updatePassword`（`app/me/actions.ts`，改密校验原密码）。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
