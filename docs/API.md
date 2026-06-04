@@ -95,6 +95,8 @@ RSC / Server Action 内用 `getCurrentUser()`（`lib/dal.ts`）→ `UserPublic |
 
 ## 2. 课程 Courses
 
+> **实现说明（M1 已落地）**：读路径（列表/详情）由 **RSC 直查 Prisma** 实现（`lib/courses.ts`：`listCourses`/`getCourseDetail`/`listDepartments`），页面通过 URL searchParams 承接 `q/department/type/sort/page`；提交新课程由 **Server Action** `submitCourse`（`app/courses/actions.ts`）实现，登录可用、同名同教师去重、状态 `pending`、提交者可即时评价。下方 REST 端点为「将来给非表单/外部客户端」预留的可选面，字段契约一致。
+
 ### 2.1 课程列表（公开）
 `GET /api/courses`
 | 参数 | 说明 |
